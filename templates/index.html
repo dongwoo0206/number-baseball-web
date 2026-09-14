@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚾ 숫자 야구 게임</title>
+    <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="game-board">
+        <h1>⚾ 숫자 야구</h1>
+        <p class="desc">0~9 사이의 중복 없는 3자리 숫자를 맞춰보세요!</p>
+        
+        <div class="input-group">
+            <input type="text" id="guessInput" maxlength="3" placeholder="123" onkeypress="handleEnter(event)">
+            <button onclick="sendGuess()">던지기</button>
+        </div>
+
+        <div class="log-container" id="log">
+            <!-- 서버에서 판정한 결과가 여기에 기록됩니다 -->
+        </div>
+    </div>
+
+    <script>
+        function handleEnter(e) {
+            if (e.key === 'Enter') {
+                sendGuess();
+            }
+        }
+
+        async function sendGuess() {
+            const inputVal = document.getElementById('guessInput').value;
+            
+            // 1. 프론트엔드 입력값 검사
+            if (inputVal.length !== 3 || new Set(inputVal).size !== 3 || isNaN(inputVal)) {
+                alert("중복되지 않는 3자리 숫자를 입력해주세요! (예: 123)");
+                document.getElementById('guessInput').value = "";
+                return;
+            }
+
+            // 2. 파이썬 서버로 데이터 전송
+            const response = await fetch('/guess', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ guess: inputVal })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            // 3. 서버에서 받은 결과로 화면 업데이트
+            let resultHTML = "";
+            if (data.is_homerun) {
+                resultHTML = `<span class="badge homerun">🎉 ${data.attempts}번 만에 홈런!</span>`;
+                setTimeout(() => { 
+                    alert(`축하합니다! ${data.attempts}번 만에 맞추셨습니다!\n새 게임을 시작합니다.`); 
+                    document.getElementById('log').innerHTML = ""; // 로그 초기화
+                }, 500);
+            } else if (data.strikes === 0 && data.balls === 0) {
+                resultHTML = `<span class="badge out">OUT</span>`;
+            } else {
+                if (data.strikes > 0) resultHTML += `<span class="badge strike">${data.strikes}S</span>`;
+                if (data.balls > 0) resultHTML += `<span class="badge ball">${data.balls}B</span>`;
+            }
+
+            // 화면 로그에 추가
+            const logDiv = document.getElementById('log');
+            const newLog = document.createElement('div');
+            newLog.className = 'log-item';
+            newLog.innerHTML = `<span class="guess-number">${inputVal}</span> <div>${resultHTML}</div>`;
+            logDiv.insertBefore(newLog, logDiv.firstChild);
+
+            // 입력창 비우기
+            document.getElementById('guessInput').value = "";
+            document.getElementById('guessInput').focus();
+        }
+    </script>
+</body>
+</html>

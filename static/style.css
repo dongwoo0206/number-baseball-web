@@ -1,0 +1,140 @@
+/* 전체 배경 및 기본 설정 */
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    color: #333;
+}
+
+/* 게임 보드 디자인 */
+.game-board {
+    background-color: #ffffff;
+    width: 100%;
+    max-width: 400px;
+    padding: 40px 30px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    box-sizing: border-box;
+}
+
+h1 {
+    font-family: 'Do Hyeon', sans-serif;
+    font-size: 36px;
+    color: #182848;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+p.desc {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* 입력창 및 버튼 영역 */
+.input-group {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+input[type="text"] {
+    font-size: 24px;
+    font-weight: 700;
+    width: 120px;
+    padding: 10px;
+    text-align: center;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.3s;
+    letter-spacing: 5px;
+}
+
+input[type="text"]:focus {
+    border-color: #4b6cb7;
+}
+
+button {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0 25px;
+    background-color: #4b6cb7;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+button:hover {
+    background-color: #3a538c;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+/* 기록 표시 영역 (전광판 느낌) */
+.log-container {
+    background-color: #f8f9fa;
+    border-radius: 15px;
+    padding: 15px;
+    height: 250px;
+    overflow-y: auto;
+    text-align: left;
+    border: 1px solid #eee;
+}
+
+.log-container::-webkit-scrollbar { width: 8px; }
+.log-container::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+.log-item {
+    background: white;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideDown 0.3s ease-out;
+}
+
+.guess-number {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    letter-spacing: 2px;
+}
+
+/* 뱃지 디자인 */
+.badge {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 20px;
+    color: white;
+    margin-left: 5px;
+}
+.badge.strike { background-color: #28a745; }
+.badge.ball { background-color: #fd7e14; }
+.badge.out { background-color: #dc3545; }
+.badge.homerun { background-color: #6f42c1; animation: pop 0.5s infinite alternate;}
+
+/* 애니메이션 */
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
