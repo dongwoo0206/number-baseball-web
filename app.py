@@ -1,16 +1,26 @@
 from flask import Flask, render_template, request, jsonify, session
 import random
+import sqlite3
 
 app = Flask(__name__)
-app.secret_key = "super_secret_key" # 세션 유지를 위한 비밀키 (임의 지정 가능)
+app.secret_key = "super_secret_key"
+
+# 1. 데이터베이스 초기화 함수
+def init_db():
+    conn = sqlite3.connect('leaderboard.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS ranking 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, attempts INTEGER)''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 def generate_secret():
-    """0~9 사이의 중복 없는 3자리 숫자 생성"""
     return random.sample(range(10), 3)
 
 @app.route('/')
 def index():
-    # 게임 첫 접속 시 정답 초기화
     if 'secret' not in session:
         session['secret'] = generate_secret()
         session['attempts'] = 0
@@ -21,7 +31,6 @@ def guess():
     data = request.json
     guess_str = data.get('guess', '')
 
-    # 서버 측 유효성 검사
     if len(guess_str) != 3 or not guess_str.isdigit() or len(set(guess_str)) != 3:
         return jsonify({'error': '유효하지 않은 입력입니다.'})
 
@@ -31,22 +40,35 @@ def guess():
 
     strikes = sum(1 for i in range(3) if guess_list[i] == secret[i])
     balls = sum(1 for i in range(3) if guess_list[i] in secret) - strikes
-
     is_homerun = (strikes == 3)
     attempts = session['attempts']
 
-    # 정답을 맞추면 정답을 새로 고침
     if is_homerun:
         session['secret'] = generate_secret()
         session['attempts'] = 0
 
-    return jsonify({
-        'strikes': strikes,
-        'balls': balls,
-        'attempts': attempts,
-        'is_homerun': is_homerun,
-        'error': None
-    })
+    return jsonify({'strikes': strikes, 'balls': balls, 'attempts': attempts, 'is_homerun': is_homerun})
+
+# 2. 랭킹 저장하기
+@app.route('/save_score', methods=['POST'])
+def save_score():
+    data = request.json
+    conn = sqlite3.connect('leaderboard.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO ranking (name, attempts) VALUES (?, ?)', (data['name'], data['attempts']))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+# 3. 랭킹 불러오기 (시도 횟수 적은 순 TOP 5)
+@app.route('/get_leaderboard', methods=['GET'])
+def get_leaderboard():
+    conn = sqlite3.connect('leaderboard.db')
+    c = conn.cursor()
+    c.execute('SELECT name, attempts FROM ranking ORDER BY attempts ASC LIMIT 5')
+    rankings = [{'name': row[0], 'attempts': row[1]} for row in c.fetchall()]
+    conn.close()
+    return jsonify(rankings)
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -6,57 +6,55 @@
     <title>⚾ 숫자 야구 게임</title>
     <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- 폭죽 파티클 효과를 위한 canvas-confetti 라이브러리 추가 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
-
-    <div class="game-board" id="gameBoard">
-        <h1>⚾ 숫자 야구</h1>
-        <p class="desc">0~9 사이의 중복 없는 3자리 숫자를 맞춰보세요!</p>
-        
-        <div class="input-group">
-            <input type="text" id="guessInput" maxlength="3" onkeypress="handleEnter(event)">
-            <button onclick="sendGuess()">던지기</button>
+    <div class="main-container">
+        <!-- 기존 게임 보드 -->
+        <div class="game-board" id="gameBoard">
+            <h1>⚾ 숫자 야구</h1>
+            <p class="desc">0~9 사이의 중복 없는 3자리 숫자를 맞춰보세요!</p>
+            <div class="input-group">
+                <input type="text" id="guessInput" maxlength="3" onkeypress="handleEnter(event)">
+                <button onclick="sendGuess()">던지기</button>
+            </div>
+            <div class="log-container" id="log"></div>
         </div>
 
-        <div class="log-container" id="log">
-            <!-- 서버에서 판정한 결과가 여기에 기록됩니다 -->
+        <!-- 🏆 새로운 랭킹 보드 -->
+        <div class="leaderboard-container">
+            <h2>🏆 명예의 전당 (Top 5)</h2>
+            <ul id="rankingList"></ul>
         </div>
     </div>
 
     <script>
-        // 화면 흔들림 효과 함수
-        function triggerShake() {
-            const board = document.getElementById('gameBoard');
-            board.classList.remove('shake');
-            void board.offsetWidth; // 애니메이션 리셋 트릭
-            board.classList.add('shake');
-        }
+        // 페이지 열릴 때 랭킹 불러오기
+        window.onload = fetchLeaderboard;
 
-        // 폭죽 효과 함수
-        function triggerConfetti() {
-            confetti({
-                particleCount: 150,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#28a745', '#4b6cb7', '#ffffff', '#fd7e14']
+        async function fetchLeaderboard() {
+            const res = await fetch('/get_leaderboard');
+            const data = await res.json();
+            const list = document.getElementById('rankingList');
+            list.innerHTML = "";
+            data.forEach((rank, idx) => {
+                list.innerHTML += `<li>${idx + 1}위: <strong>${rank.name}</strong> <span>${rank.attempts}번</span></li>`;
             });
         }
 
-        function handleEnter(e) {
-            if (e.key === 'Enter') {
-                sendGuess();
-            }
+        function triggerShake() {
+            const board = document.getElementById('gameBoard');
+            board.classList.remove('shake');
+            void board.offsetWidth; 
+            board.classList.add('shake');
         }
+
+        function handleEnter(e) { if (e.key === 'Enter') sendGuess(); }
 
         async function sendGuess() {
             const inputVal = document.getElementById('guessInput').value;
-            
             if (inputVal.length !== 3 || new Set(inputVal).size !== 3 || isNaN(inputVal)) {
-                alert("중복되지 않는 3자리 숫자를 정확히 입력해주세요!");
-                document.getElementById('guessInput').value = "";
-                return;
+                alert("중복 없는 3자리 숫자를 입력하세요!"); return;
             }
 
             const response = await fetch('/guess', {
@@ -64,25 +62,29 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ guess: inputVal })
             });
-
             const data = await response.json();
-
-            if (data.error) {
-                alert(data.error);
-                return;
-            }
 
             let resultHTML = "";
             if (data.is_homerun) {
                 resultHTML = `<span class="badge homerun">🎉 ${data.attempts}번 만에 홈런!</span>`;
-                triggerConfetti(); // 폭죽 발사!
-                setTimeout(() => { 
-                    alert(`대단합니다! ${data.attempts}번 만에 맞추셨습니다!\n새 게임을 시작합니다.`); 
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                
+                // 랭킹 등록 기능 추가
+                setTimeout(async () => { 
+                    const playerName = prompt(`🎉 ${data.attempts}번 만에 정답!\n랭킹에 등록할 이름을 입력하세요 (취소 시 미등록)`);
+                    if (playerName) {
+                        await fetch('/save_score', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: playerName.slice(0, 10), attempts: data.attempts })
+                        });
+                        fetchLeaderboard(); // 랭킹 새로고침
+                    }
                     document.getElementById('log').innerHTML = ""; 
-                }, 1500); // 폭죽을 감상할 수 있게 알림창 딜레이를 1.5초로 늘림
+                }, 1500);
             } else if (data.strikes === 0 && data.balls === 0) {
                 resultHTML = `<span class="badge out">OUT</span>`;
-                triggerShake(); // 아웃 시 게임판 흔들기!
+                triggerShake();
             } else {
                 if (data.strikes > 0) resultHTML += `<span class="badge strike">${data.strikes}S</span>`;
                 if (data.balls > 0) resultHTML += `<span class="badge ball">${data.balls}B</span>`;
@@ -93,9 +95,9 @@
             newLog.className = 'log-item';
             newLog.innerHTML = `<span class="guess-number">${inputVal}</span> <div>${resultHTML}</div>`;
             logDiv.insertBefore(newLog, logDiv.firstChild);
-
+            
             document.getElementById('guessInput').value = "";
-            document.getElementById('guessInput').focus(); // 편리하게 다음 입력을 위해 포커스 유지
+            document.getElementById('guessInput').focus();
         }
     </script>
 </body>

@@ -150,3 +150,51 @@ button:active {
     30%, 50%, 70% { transform: translate3d(-5px, 0, 0); }
     40%, 60% { transform: translate3d(5px, 0, 0); }
 }
+
+/* 전체 레이아웃 세로 정렬 */
+.main-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 20px;
+    padding: 20px;
+}
+
+/* 랭킹 보드 디자인 */
+.leaderboard-container {
+    background-color: #ffffff;
+    width: 100%;
+    max-width: 400px;
+    padding: 20px 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.leaderboard-container h2 {
+    font-family: 'Do Hyeon', sans-serif;
+    color: #182848;
+    margin-top: 0;
+    font-size: 24px;
+}
+
+#rankingList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+}
+
+#rankingList li {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    border: 1px solid #eee;
+    color: #333;
+}
