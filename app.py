@@ -1,11 +1,13 @@
 from flask import Flask, render_template, request, jsonify, session
-import random
+from flask_socketio import SocketIO, join_room, emit
 import sqlite3
+import random
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-# 1. 데이터베이스 초기화 함수
+# ----------------- [1] DB 초기화 -----------------
 def init_db():
     conn = sqlite3.connect('leaderboard.db')
     c = conn.cursor()
@@ -19,6 +21,7 @@ init_db()
 def generate_secret():
     return random.sample(range(10), 3)
 
+# ----------------- [2] 웹 페이지 및 싱글 플레이 -----------------
 @app.route('/')
 def index():
     if 'secret' not in session:
@@ -26,8 +29,8 @@ def index():
         session['attempts'] = 0
     return render_template('index.html')
 
-@app.route('/guess', methods=['POST'])
-def guess():
+@app.route('/guess_single', methods=['POST'])
+def guess_single():
     data = request.json
     guess_str = data.get('guess', '')
 
@@ -49,7 +52,6 @@ def guess():
 
     return jsonify({'strikes': strikes, 'balls': balls, 'attempts': attempts, 'is_homerun': is_homerun})
 
-# 2. 랭킹 저장하기
 @app.route('/save_score', methods=['POST'])
 def save_score():
     data = request.json
@@ -60,7 +62,6 @@ def save_score():
     conn.close()
     return jsonify({'success': True})
 
-# 3. 랭킹 불러오기 (시도 횟수 적은 순 TOP 5)
 @app.route('/get_leaderboard', methods=['GET'])
 def get_leaderboard():
     conn = sqlite3.connect('leaderboard.db')
@@ -70,5 +71,49 @@ def get_leaderboard():
     conn.close()
     return jsonify(rankings)
 
+# ----------------- [3] 멀티 플레이 (온라인 대결) -----------------
+rooms = {}
+
+@socketio.on('join')
+def on_join(data):
+    username = data['username']
+    room = data['room']
+    join_room(room)
+    
+    if room not in rooms:
+        rooms[room] = {'secret': generate_secret(), 'players': []}
+    
+    if username not in rooms[room]['players']:
+        rooms[room]['players'].append(username)
+        
+    emit('system_msg', {'msg': f'[{username}]님이 방에 입장했습니다!'}, to=room)
+
+@socketio.on('guess_multi')
+def on_guess_multi(data):
+    username = data['username']
+    room = data['room']
+    guess_str = data['guess']
+    
+    secret = rooms[room]['secret']
+    guess_list = [int(c) for c in guess_str]
+    
+    strikes = sum(1 for i in range(3) if guess_list[i] == secret[i])
+    balls = sum(1 for i in range(3) if guess_list[i] in secret) - strikes
+    
+    if strikes == 3:
+        result_html = f"🎉 홈런! {username}님 승리!"
+        rooms[room]['secret'] = generate_secret()
+    elif strikes == 0 and balls == 0:
+        result_html = "OUT"
+    else:
+        result_html = f"{strikes}S {balls}B"
+        
+    emit('multi_result', {
+        'username': username,
+        'guess': guess_str,
+        'result': result_html,
+        'is_homerun': strikes == 3
+    }, to=room)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)

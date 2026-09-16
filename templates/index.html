@@ -2,36 +2,85 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>⚾ 숫자 야구 게임</title>
     <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
     <div class="main-container">
-        <!-- 기존 게임 보드 -->
-        <div class="game-board" id="gameBoard">
-            <h1>⚾ 숫자 야구</h1>
-            <p class="desc">0~9 사이의 중복 없는 3자리 숫자를 맞춰보세요!</p>
-            <div class="input-group">
-                <input type="text" id="guessInput" maxlength="3" onkeypress="handleEnter(event)">
-                <button onclick="sendGuess()">던지기</button>
-            </div>
-            <div class="log-container" id="log"></div>
+        
+        <!-- 상단 탭 메뉴 -->
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchMode('single')" id="btnSingle">👤 혼자하기</button>
+            <button class="tab-btn" onclick="switchMode('multi')" id="btnMulti">⚔️ 온라인 대결</button>
         </div>
 
-        <!-- 🏆 새로운 랭킹 보드 -->
-        <div class="leaderboard-container">
-            <h2>🏆 명예의 전당 (Top 5)</h2>
-            <ul id="rankingList"></ul>
+        <!-- ================= [1] 싱글 플레이 모드 ================= -->
+        <div id="singleModeArea" style="display: block; width: 100%;">
+            <div class="game-board" id="singleBoard">
+                <h1>⚾ 숫자 야구 (혼자하기)</h1>
+                <p class="desc">3자리 숫자를 맞추고 명예의 전당에 도전하세요!</p>
+                <div class="input-group">
+                    <input type="text" id="guessInputSingle" maxlength="3" onkeypress="if(event.key==='Enter') sendSingleGuess()">
+                    <button onclick="sendSingleGuess()">던지기</button>
+                </div>
+                <div class="log-container" id="logSingle"></div>
+            </div>
+
+            <div class="leaderboard-container" style="margin-top: 20px;">
+                <h2>🏆 명예의 전당 (Top 5)</h2>
+                <ul id="rankingList"></ul>
+            </div>
         </div>
+
+        <!-- ================= [2] 멀티 플레이 모드 ================= -->
+        <div id="multiModeArea" style="display: none; width: 100%;">
+            <!-- 대기실 -->
+            <div class="game-board" id="lobbyBoard">
+                <h1>⚔️ 온라인 대결 대기실</h1>
+                <input type="text" id="usernameInput" placeholder="닉네임 입력"><br><br>
+                <input type="text" id="roomInput" placeholder="방 코드 (예: 1234)">
+                <button onclick="joinRoom()" style="margin-top:10px;">방 입장하기</button>
+            </div>
+
+            <!-- 멀티 게임 보드 -->
+            <div class="game-board" id="multiBoard" style="display: none;">
+                <h1 id="roomTitle">⚔️ 대결 방</h1>
+                <div class="input-group">
+                    <input type="text" id="guessInputMulti" maxlength="3" onkeypress="if(event.key==='Enter') sendMultiGuess()">
+                    <button onclick="sendMultiGuess()">던지기</button>
+                </div>
+                <div class="log-container" id="logMulti"></div>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // 페이지 열릴 때 랭킹 불러오기
+        const socket = io();
+        let myName = "";
+        let myRoom = "";
+
         window.onload = fetchLeaderboard;
 
+        // 탭 전환 로직
+        function switchMode(mode) {
+            if (mode === 'single') {
+                document.getElementById('singleModeArea').style.display = 'block';
+                document.getElementById('multiModeArea').style.display = 'none';
+                document.getElementById('btnSingle').classList.add('active');
+                document.getElementById('btnMulti').classList.remove('active');
+            } else {
+                document.getElementById('singleModeArea').style.display = 'none';
+                document.getElementById('multiModeArea').style.display = 'block';
+                document.getElementById('btnSingle').classList.remove('active');
+                document.getElementById('btnMulti').classList.add('active');
+            }
+        }
+
+        // ================= [싱글 플레이 로직] =================
         async function fetchLeaderboard() {
             const res = await fetch('/get_leaderboard');
             const data = await res.json();
@@ -42,22 +91,13 @@
             });
         }
 
-        function triggerShake() {
-            const board = document.getElementById('gameBoard');
-            board.classList.remove('shake');
-            void board.offsetWidth; 
-            board.classList.add('shake');
-        }
-
-        function handleEnter(e) { if (e.key === 'Enter') sendGuess(); }
-
-        async function sendGuess() {
-            const inputVal = document.getElementById('guessInput').value;
+        async function sendSingleGuess() {
+            const inputVal = document.getElementById('guessInputSingle').value;
             if (inputVal.length !== 3 || new Set(inputVal).size !== 3 || isNaN(inputVal)) {
                 alert("중복 없는 3자리 숫자를 입력하세요!"); return;
             }
 
-            const response = await fetch('/guess', {
+            const response = await fetch('/guess_single', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ guess: inputVal })
@@ -69,36 +109,74 @@
                 resultHTML = `<span class="badge homerun">🎉 ${data.attempts}번 만에 홈런!</span>`;
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 
-                // 랭킹 등록 기능 추가
                 setTimeout(async () => { 
-                    const playerName = prompt(`🎉 ${data.attempts}번 만에 정답!\n랭킹에 등록할 이름을 입력하세요 (취소 시 미등록)`);
+                    const playerName = prompt(`🎉 ${data.attempts}번 만에 정답!\n명예의 전당에 등록할 이름을 입력하세요.`);
                     if (playerName) {
                         await fetch('/save_score', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ name: playerName.slice(0, 10), attempts: data.attempts })
                         });
-                        fetchLeaderboard(); // 랭킹 새로고침
+                        fetchLeaderboard();
                     }
-                    document.getElementById('log').innerHTML = ""; 
+                    document.getElementById('logSingle').innerHTML = ""; 
                 }, 1500);
             } else if (data.strikes === 0 && data.balls === 0) {
                 resultHTML = `<span class="badge out">OUT</span>`;
-                triggerShake();
+                document.getElementById('singleBoard').classList.remove('shake');
+                void document.getElementById('singleBoard').offsetWidth;
+                document.getElementById('singleBoard').classList.add('shake');
             } else {
                 if (data.strikes > 0) resultHTML += `<span class="badge strike">${data.strikes}S</span>`;
                 if (data.balls > 0) resultHTML += `<span class="badge ball">${data.balls}B</span>`;
             }
 
-            const logDiv = document.getElementById('log');
-            const newLog = document.createElement('div');
-            newLog.className = 'log-item';
-            newLog.innerHTML = `<span class="guess-number">${inputVal}</span> <div>${resultHTML}</div>`;
-            logDiv.insertBefore(newLog, logDiv.firstChild);
-            
-            document.getElementById('guessInput').value = "";
-            document.getElementById('guessInput').focus();
+            const logDiv = document.getElementById('logSingle');
+            logDiv.innerHTML = `<div class="log-item"><span class="guess-number">${inputVal}</span> <div>${resultHTML}</div></div>` + logDiv.innerHTML;
+            document.getElementById('guessInputSingle').value = "";
         }
+
+        // ================= [멀티 플레이 로직] =================
+        function joinRoom() {
+            myName = document.getElementById('usernameInput').value;
+            myRoom = document.getElementById('roomInput').value;
+            if (!myName || !myRoom) { alert("닉네임과 방 코드를 모두 입력하세요."); return; }
+            
+            socket.emit('join', { username: myName, room: myRoom });
+            
+            document.getElementById('lobbyBoard').style.display = 'none';
+            document.getElementById('multiBoard').style.display = 'block';
+            document.getElementById('roomTitle').innerText = `방 코드: ${myRoom}`;
+        }
+
+        function sendMultiGuess() {
+            const inputVal = document.getElementById('guessInputMulti').value;
+            if (inputVal.length !== 3 || new Set(inputVal).size !== 3 || isNaN(inputVal)) {
+                alert("중복 없는 3자리 숫자를 입력하세요!"); return;
+            }
+            socket.emit('guess_multi', { username: myName, room: myRoom, guess: inputVal });
+            document.getElementById('guessInputMulti').value = "";
+        }
+
+        socket.on('multi_result', function(data) {
+            const logDiv = document.getElementById('logMulti');
+            let badgeClass = (data.result === "OUT") ? "out" : "strike";
+            
+            if (data.is_homerun) {
+                logDiv.innerHTML = `<div class="log-item"><strong>[${data.username}]</strong> ${data.guess} ➔ <span class="badge homerun">${data.result}</span></div>` + logDiv.innerHTML;
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                setTimeout(() => {
+                    alert(`${data.username}님 승리!\n새로운 게임이 시작됩니다.`);
+                    logDiv.innerHTML = "";
+                }, 1500);
+            } else {
+                logDiv.innerHTML = `<div class="log-item"><strong>[${data.username}]</strong> ${data.guess} ➔ <span class="badge ${badgeClass}">${data.result}</span></div>` + logDiv.innerHTML;
+            }
+        });
+
+        socket.on('system_msg', function(data) {
+            document.getElementById('logMulti').innerHTML = `<div class="log-item" style="color:#4b6cb7; font-weight:bold;">${data.msg}</div>` + document.getElementById('logMulti').innerHTML;
+        });
     </script>
 </body>
 </html>
