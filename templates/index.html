@@ -6,7 +6,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- 렉을 유발하던 canvas-confetti 외부 스크립트 삭제 -->
 </head>
 <body>
     <div class="main-container">
@@ -68,13 +68,13 @@
         // 탭 전환 로직
         function switchMode(mode) {
             if (mode === 'single') {
-                document.getElementById('singleModeArea').style.display = 'flex'; /* block을 flex로 변경 */
+                document.getElementById('singleModeArea').style.display = 'flex';
                 document.getElementById('multiModeArea').style.display = 'none';
                 document.getElementById('btnSingle').classList.add('active');
                 document.getElementById('btnMulti').classList.remove('active');
             } else {
                 document.getElementById('singleModeArea').style.display = 'none';
-                document.getElementById('multiModeArea').style.display = 'flex'; /* block을 flex로 변경 */
+                document.getElementById('multiModeArea').style.display = 'flex';
                 document.getElementById('btnSingle').classList.remove('active');
                 document.getElementById('btnMulti').classList.add('active');
             }
@@ -107,7 +107,6 @@
             let resultHTML = "";
             if (data.is_homerun) {
                 resultHTML = `<span class="badge homerun">🎉 ${data.attempts}번 만에 홈런!</span>`;
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 
                 setTimeout(async () => { 
                     const playerName = prompt(`🎉 ${data.attempts}번 만에 정답!\n명예의 전당에 등록할 이름을 입력하세요.`);
@@ -120,12 +119,10 @@
                         fetchLeaderboard();
                     }
                     document.getElementById('logSingle').innerHTML = ""; 
-                }, 1500);
+                }, 500); // 딜레이를 기존 1.5초에서 짧게(0.5초) 원복
             } else if (data.strikes === 0 && data.balls === 0) {
                 resultHTML = `<span class="badge out">OUT</span>`;
-                document.getElementById('singleBoard').classList.remove('shake');
-                void document.getElementById('singleBoard').offsetWidth;
-                document.getElementById('singleBoard').classList.add('shake');
+                // 화면 흔들림 로직 삭제됨
             } else {
                 if (data.strikes > 0) resultHTML += `<span class="badge strike">${data.strikes}S</span>`;
                 if (data.balls > 0) resultHTML += `<span class="badge ball">${data.balls}B</span>`;
@@ -164,11 +161,11 @@
             
             if (data.is_homerun) {
                 logDiv.innerHTML = `<div class="log-item"><strong>[${data.username}]</strong> ${data.guess} ➔ <span class="badge homerun">${data.result}</span></div>` + logDiv.innerHTML;
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                
                 setTimeout(() => {
                     alert(`${data.username}님 승리!\n새로운 게임이 시작됩니다.`);
                     logDiv.innerHTML = "";
-                }, 1500);
+                }, 500); // 딜레이 원복
             } else {
                 logDiv.innerHTML = `<div class="log-item"><strong>[${data.username}]</strong> ${data.guess} ➔ <span class="badge ${badgeClass}">${data.result}</span></div>` + logDiv.innerHTML;
             }
