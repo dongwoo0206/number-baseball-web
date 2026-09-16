@@ -18,7 +18,7 @@
         </div>
 
         <!-- ================= [1] 싱글 플레이 모드 ================= -->
-        <div id="singleModeArea" style="display: block; width: 100%;">
+        <div id="singleModeArea" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
             <div class="game-board" id="singleBoard">
                 <h1>⚾ 숫자 야구 (혼자하기)</h1>
                 <p class="desc">3자리 숫자를 맞추고 명예의 전당에 도전하세요!</p>
@@ -36,7 +36,7 @@
         </div>
 
         <!-- ================= [2] 멀티 플레이 모드 ================= -->
-        <div id="multiModeArea" style="display: none; width: 100%;">
+        <div id="multiModeArea" style="display: none; flex-direction: column; align-items: center; width: 100%;">
             <!-- 대기실 -->
             <div class="game-board" id="lobbyBoard">
                 <h1>⚔️ 온라인 대결 대기실</h1>
@@ -68,13 +68,13 @@
         // 탭 전환 로직
         function switchMode(mode) {
             if (mode === 'single') {
-                document.getElementById('singleModeArea').style.display = 'block';
+                document.getElementById('singleModeArea').style.display = 'flex'; /* block을 flex로 변경 */
                 document.getElementById('multiModeArea').style.display = 'none';
                 document.getElementById('btnSingle').classList.add('active');
                 document.getElementById('btnMulti').classList.remove('active');
             } else {
                 document.getElementById('singleModeArea').style.display = 'none';
-                document.getElementById('multiModeArea').style.display = 'block';
+                document.getElementById('multiModeArea').style.display = 'flex'; /* block을 flex로 변경 */
                 document.getElementById('btnSingle').classList.remove('active');
                 document.getElementById('btnMulti').classList.add('active');
             }
